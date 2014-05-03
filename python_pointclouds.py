@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from sensor_msgs.msg import PointCloud2, PointField
+from sensor_msgs.msg import PointCloud2, PointField, Image
 import numpy as np
 import struct
 
@@ -34,8 +34,16 @@ def pointcloud2_to_array(msg):
     # import pdb; pdb.set_trace()
     unpacker = struct.Struct(fmt_full)
     unpacked = np.asarray(unpacker.unpack_from(msg.data))
+    unpacked = unpacked.reshape(msg.height, msg.width, len(msg.fields))
+
+    # Unpack RGB color info
+    _float2rgb_vectorized = np.vectorize(_float2rgb)
+    r, g, b = _float2rgb_vectorized(unpacked[:, :, 3])
+    r = np.expand_dims(r, 2)  # insert blank 3rd dimension (for concatenation)
+    g = np.expand_dims(g, 2)  # insert blank 3rd dimension (for concatenation)
+    b = np.expand_dims(b, 2)  # insert blank 3rd dimension (for concatenation)
+    unpacked = np.concatenate((unpacked[:, :, 0:3], r, g, b), axis=2)
     return unpacked
-    # unpacked.reshape(msg.height, msg.width, len(msg.fields))
 
 def _get_struct_fmt(cloud, field_names=None):
     fmt = '>' if cloud.is_bigendian else '<'
@@ -53,16 +61,26 @@ def _get_struct_fmt(cloud, field_names=None):
 
     return fmt
 
-rate_pub = None
+def _float2rgb(x):
+    rgb = struct.unpack('I', struct.pack('f', x))[0]
+    b = (rgb >> 16) & 0x0000ff;
+    g = (rgb >> 8)  & 0x0000ff;
+    r = (rgb)       & 0x0000ff;
+    return r,g,b
+
+image_pub = None
+
 
 def cloud_cb(msg):
-    pointcloud2_to_array(msg)
+    arr = pointcloud2_to_array(msg)
+    
+    
     rate_pub.publish()
 
 if __name__ == '__main__':
     import rospy
     from std_msgs.msg import Empty
     rospy.init_node('test_pointclouds')
-    rate_pub = rospy.Publisher('rate', Empty)
+    image_pub = rospy.Publisher('/camera/depth_registered/points_image', Image)
     rospy.Subscriber('/camera/depth_registered/points', PointCloud2, cloud_cb)
     rospy.spin()

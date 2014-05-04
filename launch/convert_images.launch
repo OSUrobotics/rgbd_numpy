@@ -1,0 +1,14 @@
+<launch>
+
+	<!-- Initialize Kinect via OpenNI -->
+	<include file="$(find openni_launch)/launch/openni.launch" >
+		 <arg name="depth_registration" value="true" />
+	</include>		      	
+
+	<!-- Start Converter node -->
+	<node type="python_images.py" pkg="rgbd_numpy" name="python_images" output="screen" />
+
+	<!-- Image Viewer Window -->
+
+
+</launch>

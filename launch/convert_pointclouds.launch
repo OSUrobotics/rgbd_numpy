@@ -1,0 +1,17 @@
+<launch>
+
+	<!-- Initialize Kinect via OpenNI -->
+	<include file="$(find openni_launch)/launch/openni.launch" >
+		 <arg name="depth_registration" value="true" />
+	</include>		      	
+
+	<!-- Start Converter node -->
+	<node type="python_pointclouds.py" pkg="rgbd_numpy" name="python_pointclouds" output="screen" />
+
+	<!-- Image Viewer Window -->
+	<node type="image_view" pkg="image_view" name="image_view" output="screen">
+	      <remap from="image" to="/camera/depth_registered/points_image"/>
+	</node>
+
+
+</launch>

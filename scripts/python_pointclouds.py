@@ -81,9 +81,8 @@ image_pub = None
 bridge = CvBridge()
 
 def cloud_cb(msg):
-
     arr = pointcloud2_to_array(msg)
-    image_np = copy.deepcopy(arr.astype('uint8'))
+    image_np = copy.deepcopy(arr[:, :, 3:].astype('uint8'))
     image_cv = cv.fromarray(image_np)
     image_msg = bridge.cv_to_imgmsg(image_cv, encoding='rgb8')
     image_pub.publish(image_msg)

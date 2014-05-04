@@ -2,6 +2,11 @@
 from sensor_msgs.msg import PointCloud2, PointField, Image
 import numpy as np
 import struct
+import cv
+from cv_bridge import CvBridge
+
+import copy 
+import code  # HACK for debugging
 
 fmt_full = ''
 
@@ -39,9 +44,10 @@ def pointcloud2_to_array(msg):
     # Unpack RGB color info
     _float2rgb_vectorized = np.vectorize(_float2rgb)
     r, g, b = _float2rgb_vectorized(unpacked[:, :, 3])
+    z = np.expand_dims(copy.deepcopy(unpacked[:, :, 2]), 2)
     r = np.expand_dims(r, 2)  # insert blank 3rd dimension (for concatenation)
-    g = np.expand_dims(g, 2)  # insert blank 3rd dimension (for concatenation)
-    b = np.expand_dims(b, 2)  # insert blank 3rd dimension (for concatenation)
+    g = np.expand_dims(g, 2)  
+    b = np.expand_dims(b, 2)  
     unpacked = np.concatenate((unpacked[:, :, 0:3], r, g, b), axis=2)
     return unpacked
 
@@ -68,14 +74,19 @@ def _float2rgb(x):
     r = (rgb)       & 0x0000ff;
     return r,g,b
 
-image_pub = None
 
+######### ROS NODE FOR TESTING ################
+
+image_pub = None
+bridge = CvBridge()
 
 def cloud_cb(msg):
+
     arr = pointcloud2_to_array(msg)
-    
-    
-    rate_pub.publish()
+    image_np = copy.deepcopy(arr.astype('uint8'))
+    image_cv = cv.fromarray(image_np)
+    image_msg = bridge.cv_to_imgmsg(image_cv, encoding='rgb8')
+    image_pub.publish(image_msg)
 
 if __name__ == '__main__':
     import rospy

@@ -100,6 +100,7 @@ if __name__ == '__main__':
             image_grabber.convert_to_numpy()
 
             """ 
+            # FILTER #1
             # TWO-METER DISTANCE FILTER
             image_grabber.array_depth[numpy.isnan(image_grabber.array_depth)] = 0.0
             mask = numpy.logical_or(image_grabber.array_depth > 2000, image_grabber.array_depth == 0)   # 2000mm = 2m
@@ -107,13 +108,29 @@ if __name__ == '__main__':
                 image_grabber.array_rgb[:, :, i][mask] = 0
             """
 
-            # PERSON FILTER (if you stand at image center)
+            """
+            # FILTER #2
+            # TWO-METER DISTANCE FILTER USING XYZ POINTS
             # Note: +Y is down, +X is right, +Z is "out" of course
             image_grabber.convert_to_xyz()
-            image_grabber.array_xyz[numpy.isnan(image_grabber.array_xyz)] = 0.0
+            image_grabber.array_xyz[numpy.isnan(image_grabber.array_xyz)] = 0.0  # filter out NaNs
             mask = numpy.logical_or(image_grabber.array_xyz[:, :, 2] > 2.0, image_grabber.array_xyz[:, :, 2] == 0)   # 2000mm = 2m
             for i in range(image_grabber.array_rgb.shape[2]): 
                 image_grabber.array_rgb[:, :, i][mask] = 0
-            
+            """
+
+            # FILTER #3
+            # PERSON FILTER (if you stand at image center)
+            # Note: +Y is down, +X is right, +Z is "out" of course
+            image_grabber.convert_to_xyz()
+            image_grabber.array_xyz[numpy.isnan(image_grabber.array_xyz)] = 0.0  # filter out NaNs
+            centerpoint = image_grabber.array_xyz[480/2, 640/2, :]
+            mask_x = numpy.logical_and(image_grabber.array_xyz[:, :, 1] < centerpoint[1] + 0.40, image_grabber.array_xyz[:, :, 1] > centerpoint[1] - 0.40)
+            mask_z = numpy.logical_and(image_grabber.array_xyz[:, :, 2] < centerpoint[2] + 0.40, image_grabber.array_xyz[:, :, 2] > centerpoint[2] - 0.40)
+            mask_xz = numpy.logical_and(mask_x, mask_z)  # draws a 40cm rectangular prism around the centerpoint
+            mask = numpy.logical_or(mask_xz, image_grabber.array_xyz[:, :, 2] == 0)  # get rid of NaNs
+            for i in range(image_grabber.array_rgb.shape[2]): 
+                image_grabber.array_rgb[:, :, i][mask] = 0
+
             image_grabber.publish_rgb()
 

@@ -55,6 +55,10 @@ Publisher example::
 """
 
 import numpy
+from cv_bridge import CvBridge
+import cv
+
+bridge = CvBridge()
 
 # TODO: we will need to generate a new type structure with
 # little-endian specified and then pass that type structure into the
@@ -64,15 +68,26 @@ def _serialize_numpy(self, buff):
     """
     wrapper for factory-generated class that passes numpy module into serialize
     """
-    # pass in numpy module reference to prevent import in auto-generated code
-    return self.serialize_numpy(buff, numpy)
+    # for Image msgs
+    if self._type == 'sensor_msgs/Image':
+        self.data = bridge.cv_to_imgmsg(cv.fromarray(self.data), encoding=self.encoding).data
+        
+        
+    return self.serialize_numpy(buff, numpy)  # serialize (with numpy wherever possible)
+
 
 def _deserialize_numpy(self, str):
     """
     wrapper for factory-generated class that passes numpy module into deserialize    
     """
-    # pass in numpy module reference to prevent import in auto-generated code
-    return self.deserialize_numpy(str, numpy)
+    self.deserialize_numpy(str, numpy)  # deserialize (with numpy wherever possible)
+
+    # for Image msgs
+    if self._type == 'sensor_msgs/Image':
+        self.data = numpy.asarray(bridge.imgmsg_to_cv(self, desired_encoding=self.encoding))  # convert pixel data to numpy array
+    
+    return self
+
     
 ## Use this function to generate message instances using numpy array
 ## types for numerical arrays. 

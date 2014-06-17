@@ -44,7 +44,7 @@ class CloudConverter():
         z = copy.deepcopy(image_rgb[:, :, 2])  # get depth values (I think)
         image_np = copy.deepcopy(image_rgb[:, :, 3:].astype('uint8'))
         #code.interact(local=locals())
-
+        
         # TWO-METER DISTANCE FILTER
         z[np.isnan(z)] = 0.0
         mask = np.logical_or(z > 2, z == 0)

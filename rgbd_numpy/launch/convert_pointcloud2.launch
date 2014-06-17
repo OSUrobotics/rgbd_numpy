@@ -1,7 +1,7 @@
 <launch>
 
 	<!-- Play rosbag -->
-	<!--node pkg="rosbag" type="play" name="play_kinect_bag" args="-l /home/ruebenm/workspaces/privacy_ws/src/rgbd_numpy/data/kinect_all.bag --topics /camera/depth_registered/points --hz=19 --clock" /-->
+
 
 	<!-- Main Python Script for PointCloud2 tests -->
 	<node type="python_pointcloud2.py" pkg="rgbd_numpy" name="python_pointcloud2" output="screen" />

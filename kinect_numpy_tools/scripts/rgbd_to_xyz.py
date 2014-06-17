@@ -1,24 +1,16 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import Empty
 from sensor_msgs.msg import CameraInfo, Image
 from image_geometry import PinholeCameraModel
 import numpy
-import cv
-from cv_bridge import CvBridge
 import message_filters
-from rospy.numpy_msg import numpy_msg
-
-import code # FOR TESTING
+from kinect_numpy_tools.numpy_msg import numpy_msg
 
 
 class ImageGrabber():
     def __init__(self, topics):
         
-        # 
-        self.bridge = CvBridge()
-
         # Flags
         self.need_rgb = True
         self.need_depth = True
@@ -35,7 +27,7 @@ class ImageGrabber():
         ts_depth = message_filters.TimeSynchronizer([sub_depth, sub_depth_info], 10)
         ts_depth.registerCallback(self.depth_callback)
 
-        self.pub_filtered = rospy.Publisher('/camera/rgb/image_color_filtered', numpy_msg(Image))
+        self.pub_filtered = rospy.Publisher('/camera/xyz/image', numpy_msg(Image))
 
 
     def rgb_callback(self, image_rgb, rgb_info):
@@ -44,6 +36,7 @@ class ImageGrabber():
         self.need_rgb = False
 
     def depth_callback(self, image_depth, depth_info):
+        image_depth.data[numpy.isnan(image_depth.data)] = 0.0  # filter out NANs
         self.image_depth = image_depth
         self.depth_info = depth_info
         self.need_depth = False
@@ -69,7 +62,7 @@ class ImageGrabber():
 
 if __name__ == '__main__':
 
-    rospy.init_node('python_images')
+    rospy.init_node('rgbd_to_xyz_converter')
 
     topics = {'rgb' : '/camera/rgb/image_color',
               'rgb_info' : '/camera/rgb/camera_info',
@@ -78,51 +71,27 @@ if __name__ == '__main__':
 
     image_grabber = ImageGrabber(topics)
                                         
-    while image_grabber.need_depth:
+    while image_grabber.need_depth:  # wait for first depth image
         rospy.sleep(0.01)
         
     image_grabber.get_rays()  # make map of 3D rays for each pixel for converting depth values -> XYZ points
     rospy.loginfo('Made array of all pixel->ray correspondences!')
         
-                                        
-    while not rospy.is_shutdown():
+    while not rospy.is_shutdown():  # Do RGBD->XYZ conversions forever
 
-        if not image_grabber.need_rgb and not image_grabber.need_depth:
+        if not image_grabber.need_rgb and not image_grabber.need_depth:  # if have both RGB and Depth image
 
-            """
-            # FILTER #1
-            # TWO-METER DISTANCE FILTER
-            image_grabber.image_depth.data[numpy.isnan(image_grabber.image_depth.data)] = 0.0
-            mask = numpy.logical_or(image_grabber.image_depth.data > 2000, image_grabber.image_depth.data == 0)   # 2000mm = 2m
-            for i in range(image_grabber.image_rgb.data.shape[2]): 
-                image_grabber.image_rgb.data[:, :, i][mask] = 0
-            """
-
-
-            # FILTER #2
-            # TWO-METER DISTANCE FILTER USING XYZ POINTS
-            # Note: +Y is down, +X is right, +Z is "out" of course
             image_grabber.convert_to_xyz()
-            image_grabber.array_xyz[numpy.isnan(image_grabber.array_xyz)] = 0.0  # filter out NaNs
-            mask = numpy.logical_or(image_grabber.array_xyz[:, :, 2] > 2.0, image_grabber.array_xyz[:, :, 2] == 0)   # 2000mm = 2m
-            for i in range(image_grabber.image_rgb.data.shape[2]): 
-                image_grabber.image_rgb.data[:, :, i][mask] = 0
-            """
 
-            # FILTER #3
-            # PERSON FILTER (if you stand at image center)
-            # Note: +Y is down, +X is right, +Z is "out" of course
-            image_grabber.convert_to_xyz()
-            image_grabber.array_xyz[numpy.isnan(image_grabber.array_xyz)] = 0.0  # filter out NaNs
-            centerpoint = image_grabber.array_xyz[480/2, 640/2, :]
-            mask_x = numpy.logical_and(image_grabber.array_xyz[:, :, 1] < centerpoint[1] + 0.40, image_grabber.array_xyz[:, :, 1] > centerpoint[1] - 0.40)
-            mask_z = numpy.logical_and(image_grabber.array_xyz[:, :, 2] < centerpoint[2] + 0.40, image_grabber.array_xyz[:, :, 2] > centerpoint[2] - 0.40)
-            mask_xz = numpy.logical_and(mask_x, mask_z)  # draws a 40cm rectangular prism around the centerpoint
-            mask = numpy.logical_or(mask_xz, image_grabber.array_xyz[:, :, 2] == 0)  # get rid of NaNs
-            for i in range(image_grabber.image_rgb.data.shape[2]): 
-                image_grabber.image_rgb.data[:, :, i][mask] = 0
-            """
-            image_grabber.pub_filtered.publish(image_grabber.image_rgb)
+            #HACK
+            image_out = Image()
+            image_out.header.stamp = rospy.Time.now()
+            image_out.header.frame_id = image_grabber.image_rgb.header.frame_id
+            image_out.header.height = image_grabber.image_rgb.height
+            image_out.header.width = image_grabber.image_rgb.width
+            image_out.header.encoding = ''
+            #image_grabber.image_rgb.data = image_grabber.array_xyz
+            image_grabber.pub_filtered.publish(image_grabber.image_rgb)  # HACK set data field of Image msg to be XYZ array
 
             image_grabber.need_rgb = True   # reset flags
             image_grabber.need_depth = True

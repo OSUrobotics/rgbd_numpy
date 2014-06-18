@@ -47,25 +47,66 @@ Modified to work for Image messages by Matthew Rueben.
 
 """
 
-import numpy
-from cv_bridge import CvBridge
-import cv
-
-bridge = CvBridge()
-
 # TODO: we will need to generate a new type structure with
 # little-endian specified and then pass that type structure into the
 # *_numpy calls.
+
+import rospy
+import numpy
+from cv_bridge import CvBridge
+import cv
+import struct
+from sensor_msgs import point_cloud2
+
+import code  # HACK!!!
+
+bridge = CvBridge()
+
+
+def _float2rgb(x):  # unpack single FLOAT value from Kinect's PointCloud2 into UINT8 <r,g,b> values
+    rgb = struct.unpack('I', struct.pack('f', x))[0]
+    b = (rgb >> 16) & 0x0000ff;
+    g = (rgb >> 8)  & 0x0000ff;
+    r = (rgb)       & 0x0000ff;
+    return r,g,b
+
+def _rgb2float(r, g, b):  # opposite of above
+    x = 1.00  # BLUE!
+    return x
+
 
 def _serialize_numpy(self, buff):
     """
     wrapper for factory-generated class that passes numpy module into serialize
     """
+
     # for Image msgs
     if self._type == 'sensor_msgs/Image':
         self.data = bridge.cv_to_imgmsg(cv.fromarray(self.data), encoding=self.encoding).data
-        
-        
+
+    # for PointCloud2 msgs
+    if self._type == 'sensor_msgs/PointCloud2':
+        print 'Cloud is being serialized...'
+
+        # Pack each RGB triple into a single float
+        _rgb2float_vectorized = numpy.vectorize(_rgb2float)
+        rgb = _rgb2float_vectorized(self.data.rgb[:, :, 0],
+                                    self.data.rgb[:, :, 1],
+                                    self.data.rgb[:, :, 2])
+
+        rgb[:, :320] = 0.0  # turn left half WHITE
+
+        # Reshape to a list of (x, y, z, rgb) tuples
+        xyz = self.data.xyz.reshape(self.height * self.width, 3)
+        rgb = rgb.reshape(self.height * self.width)
+        rgb = numpy.expand_dims(rgb, 1)  # insert blank 2nd dimension (for concatenation)
+        self.data = numpy.concatenate((xyz, rgb), axis=1)
+
+        # Make the PointCloud2 msg
+        self.header.stamp = rospy.Time.now()
+        self = point_cloud2.create_cloud(self.header, self.fields, self.data)
+
+
     return self.serialize_numpy(buff, numpy)  # serialize (with numpy wherever possible)
 
 
@@ -78,7 +119,29 @@ def _deserialize_numpy(self, str):
     # for Image msgs
     if self._type == 'sensor_msgs/Image':
         self.data = numpy.asarray(bridge.imgmsg_to_cv(self, desired_encoding=self.encoding))  # convert pixel data to numpy array
-    
+
+    # for PointCloud2 msgs
+    if self._type == 'sensor_msgs/PointCloud2':
+        print 'Cloud is being deserialized...'
+        points = point_cloud2.read_points(self)
+        points_arr = numpy.asarray(list(points))
+        
+        # Unpack RGB color info
+        _float2rgb_vectorized = numpy.vectorize(_float2rgb)
+        r, g, b = _float2rgb_vectorized(points_arr[:, 3])
+        r = numpy.expand_dims(r, 1).astype('uint8')  # insert blank 3rd dimension (for concatenation)
+        g = numpy.expand_dims(g, 1).astype('uint8')  
+        b = numpy.expand_dims(b, 1).astype('uint8')  
+
+        # Concatenate and Reshape
+        pixels_rgb = numpy.concatenate((r, g, b), axis=1)
+        image_rgb = pixels_rgb.reshape(self.height, self.width, 3)
+        points_arr = points_arr[:, :3].reshape(self.height, self.width, 3).astype('float32')
+
+        # Build record array to separate datatypes -- int16 for XYZ, uint8 for RGB
+        image_xyzrgb = numpy.rec.fromarrays((points_arr, image_rgb), names=('xyz', 'rgb'))
+        self.data = image_xyzrgb
+
     return self
 
     

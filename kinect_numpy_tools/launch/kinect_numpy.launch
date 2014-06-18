@@ -6,7 +6,7 @@
 	</include>		      	
 
 	<!-- Start Converter node -->
-	<node type="rgbd_to_xyz.py" pkg="kinect_numpy_tools" name="python_images" output="screen" />
+	<node type="images_to_cloud.py" pkg="kinect_numpy_tools" name="images_to_cloud" output="screen" />
 
 	<!-- Image Viewer Window -->
 	<!--node type="image_view" pkg="image_view" name="image_view" output="screen" -->

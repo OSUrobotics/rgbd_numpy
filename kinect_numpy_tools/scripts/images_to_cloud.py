@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import rospy
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField
 from image_geometry import PinholeCameraModel
 import numpy
 import message_filters
 from kinect_numpy_tools.numpy_msg import numpy_msg
 
+import code  # HACK!!
 
 class ImageGrabber():
     def __init__(self, topics):
@@ -27,7 +28,7 @@ class ImageGrabber():
         ts_depth = message_filters.TimeSynchronizer([sub_depth, sub_depth_info], 10)
         ts_depth.registerCallback(self.depth_callback)
 
-        self.pub_filtered = rospy.Publisher('/camera/xyz/image', numpy_msg(Image))
+        self.pub_cloud = rospy.Publisher('/camera/xyz_rgb/points', numpy_msg(PointCloud2))
 
 
     def rgb_callback(self, image_rgb, rgb_info):
@@ -83,16 +84,29 @@ if __name__ == '__main__':
 
             image_grabber.convert_to_xyz()
 
-            #HACK
-            image_out = Image()
-            image_out.header.stamp = rospy.Time.now()
-            image_out.header.frame_id = image_grabber.image_rgb.header.frame_id
-            image_out.header.height = image_grabber.image_rgb.height
-            image_out.header.width = image_grabber.image_rgb.width
-            image_out.header.encoding = ''
-            #image_grabber.image_rgb.data = image_grabber.array_xyz
-            image_grabber.pub_filtered.publish(image_grabber.image_rgb)  # HACK set data field of Image msg to be XYZ array
+            # Initialize the PointCloud2 msg
+            cloud = PointCloud2()
+            cloud.header.stamp = image_grabber.image_rgb.header.stamp
+            cloud.header.frame_id = image_grabber.image_rgb.header.frame_id
+            cloud.height = image_grabber.image_rgb.height
+            cloud.width = image_grabber.image_rgb.width
+            cloud.point_step = 32
+            cloud.row_step = 20480
 
-            image_grabber.need_rgb = True   # reset flags
-            image_grabber.need_depth = True
+            # Jam the numpy XYZ/RGB data into the cloud
+            points_arr = image_grabber.array_xyz.astype('float32')
+            image_rgb = image_grabber.image_rgb.data
+            cloud.data = numpy.rec.fromarrays((points_arr, image_rgb), names=('xyz', 'rgb'))
+            
+            # Generate 'fields' attribute of PointCloud2 according to Kinect conventions
+            cloud.fields.append( PointField(name='x',   offset=0,  datatype=7, count=1) )
+            cloud.fields.append( PointField(name='y',   offset=4,  datatype=7, count=1) )
+            cloud.fields.append( PointField(name='z',   offset=8,  datatype=7, count=1) )
+            cloud.fields.append( PointField(name='rgb', offset=16, datatype=7, count=1) )
+
+            # Publish!
+            image_grabber.pub_cloud.publish(data=cloud.data, fields=cloud.fields, header=cloud.header, height=cloud.height, width=cloud.width, point_step=cloud.point_step, row_step=cloud.row_step)
+            print 'Cloud is away!\n'
+            #image_grabber.need_rgb = True   # reset flags
+            #image_grabber.need_depth = True
 

@@ -1,0 +1,26 @@
+<launch>
+
+	<!-- Initialize Kinect via OpenNI -->
+	<include file="$(find openni_launch)/launch/openni.launch" >
+		 <arg name="depth_registration" value="true" />
+	</include>		      	
+
+	<!-- Start first node -->
+	<node type="test_Cloud2Numpy.py" pkg="kinect_numpy_tools" name="python_images" output="screen" >
+	      <remap from="/cloud_in" to="/camera/depth_registered/points" />
+	      <remap from="/cloud_out" to="/camera/depth_registered/points_numpy" />
+	</node>
+
+	<!-- Start second node -->
+	<node type="test_Cloud2Numpy2.py" pkg="kinect_numpy_tools" name="python_images2" output="screen" >
+	      <remap from="/cloud_in" to="/camera/depth_registered/points_numpy" />
+	      <remap from="/cloud_out" to="/camera/depth_registered/points_numpy2" />
+	</node>
+
+	<!-- Image Viewer Window -->
+	<!--node type="image_view" pkg="image_view" name="image_view" output="screen" -->
+	      <!--remap from="image" to="/camera/rgb/image_color_filtered" /-->
+	<!--/node-->
+
+
+</launch>

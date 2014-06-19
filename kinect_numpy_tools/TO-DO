@@ -3,3 +3,4 @@ To-do list for kinect_numpy_tools:
   -> Investigate lossless PointCloud2 compression:
      -> Existing code (catkinize if it doesn't work)?
      -> Shrink the size of the PointCloud2 by keeping XYZ as uint16's or whatever's clever
+  -> Integrate with image_transport to allow user to enable compression in low-bandwidth scenarios

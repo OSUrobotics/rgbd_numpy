@@ -1,0 +1,14 @@
+<launch>
+
+	<!-- Start Converter node -->
+	<node type="images_to_cloud.py" pkg="kinect_numpy_tools" name="images_to_cloud" output="screen" >
+	      <remap from="/camera/rgb/image_color" to="/camera/rgb/image_color/uncompressed" />
+	      <remap from="/camera/depth_registered/image_raw" to="/camera/depth_registered/image_raw/uncompressed" />
+	</node>
+	
+	<!-- Start Republisher node -->
+	<node type="republish" pkg="image_transport" name="republish_rgb" args="compressed in:=/camera/rgb/image_color raw out:=/camera/rgb/image_color/uncompressed" />
+	<node type="republish" pkg="image_transport" name="republish_depth" args="compressedDepth in:=/camera/depth_registered/image_raw raw out:=/camera/depth_registered/image_raw/uncompressed" />
+
+
+</launch>

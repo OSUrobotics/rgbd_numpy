@@ -1,0 +1,5 @@
+To-do list for kinect_numpy_tools:
+  -> (w/ Dan) Add correct color serialization to PointCloud2 msgs in numpy_msg (color de-serialization works)
+  -> Investigate lossless PointCloud2 compression:
+     -> Existing code (catkinize if it doesn't work)?
+     -> Shrink the size of the PointCloud2 by keeping XYZ as uint16's or whatever's clever

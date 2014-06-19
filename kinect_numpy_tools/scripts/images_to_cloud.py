@@ -19,13 +19,13 @@ class ImageGrabber():
         # RGB Subscribers
         sub_rgb = message_filters.Subscriber(topics['rgb'], numpy_msg(Image))
         sub_rgb_info = message_filters.Subscriber(topics['rgb_info'], CameraInfo)
-        ts_rgb = message_filters.TimeSynchronizer([sub_rgb, sub_rgb_info], 10)
+        ts_rgb = message_filters.TimeSynchronizer([sub_rgb, sub_rgb_info], 100)
         ts_rgb.registerCallback(self.rgb_callback)
 
         # Depth Subscribers
         sub_depth = message_filters.Subscriber(topics['depth'], numpy_msg(Image))
         sub_depth_info = message_filters.Subscriber(topics['depth_info'], CameraInfo)
-        ts_depth = message_filters.TimeSynchronizer([sub_depth, sub_depth_info], 10)
+        ts_depth = message_filters.TimeSynchronizer([sub_depth, sub_depth_info], 100)
         ts_depth.registerCallback(self.depth_callback)
 
         self.pub_cloud = rospy.Publisher('/camera/xyz_rgb/points', numpy_msg(PointCloud2))
@@ -74,7 +74,8 @@ if __name__ == '__main__':
                                         
     while image_grabber.need_depth:  # wait for first depth image
         rospy.sleep(0.01)
-        
+
+    rospy.loginfo('Got depth image; processing...')
     image_grabber.get_rays()  # make map of 3D rays for each pixel for converting depth values -> XYZ points
     rospy.loginfo('Made array of all pixel->ray correspondences!')
         
@@ -106,7 +107,6 @@ if __name__ == '__main__':
 
             # Publish!
             image_grabber.pub_cloud.publish(data=cloud.data, fields=cloud.fields, header=cloud.header, height=cloud.height, width=cloud.width, point_step=cloud.point_step, row_step=cloud.row_step)
-            print 'Cloud is away!\n'
-            #image_grabber.need_rgb = True   # reset flags
-            #image_grabber.need_depth = True
+            image_grabber.need_rgb = True   # reset flags
+            image_grabber.need_depth = True
 

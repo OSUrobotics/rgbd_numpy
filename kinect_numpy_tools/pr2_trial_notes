@@ -1,0 +1,21 @@
+Trying kinect image transportation stuff on the PR2
+
+Procedure:
+- Over "robotics" network
+- Change laptop ROS_MASTER_URI to robot's
+1) rostopic hz /wide_stereo/right/image_color yields 0.7Hz on laptop, 28Hz on robot, 0.92MB message size
+2) rostopic hz /wide_stereo/right/image_color/compressed yields ~10Hz on laptop, 28Hz on robot, ~35KB message size
+3) rostopic hz /wide_stereo/right/image_color/theora yields about same rates on laptop as robot, 0.1-10KB message size
+- Tried using image_view; results confirmed! Compression helps a TON!
+
+- Now launching kinect on PR2: roslaunch openni_launch openni.launch depth_registration:=true
+1) (like #1 above, but w/ onboard Kinect) yields <0.5Hz on laptop, 30Hz on robot
+2) (like #2 above, but w/ onboard Kinect) yields ~15Hz on laptop
+3) (like #3 above, but w/ onboard Kinect) yields 30Hz on laptop
+
+- Now trying to make my own PointCloud2 messages
+- Had to switch to harrisLAN network, refresh my ROS_IP, and change my ROS_MASTER_URI to http://10.68.0.1:113211
+- Had to do robot stop, robot start to get the kinect working again
+- Works to run kinect_numpy_tools/images_to_cloud.py on laptop; ~1Hz cloud output
+- Using "compressed" and "compressedDepth" gets us ~5-10-15Hz (variable)
+- Running kinect_numpy_tools/images_to_cloud.py with compression still yields ~1Hz output...booooooo.
